@@ -6,3 +6,4 @@ python-dotenv==1.0.1
 reportlab==4.0.8
 gunicorn
 reportlab==4.0.8
+pytz
