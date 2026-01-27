@@ -82,7 +82,11 @@ def generate_pdf(fir):
     os.makedirs("generated_fir", exist_ok=True)
 
     file_id = uuid.uuid4().hex[:10].upper()
+    year = datetime.now().year
+    lr_no = f"{file_id}/{year}"
+
     filename = f"FIR_{file_id}.pdf"
+
     path = f"generated_fir/{filename}"
 
     c = canvas.Canvas(path, pagesize=A4)
@@ -145,30 +149,61 @@ def generate_pdf(fir):
     )
 
     # ================= 2. CRIME DETAILS =================
-    ipc_list = ", ".join(fir.get("ipc_sections", []))
+    bns_list = ", ".join(fir.get("bns_sections", []))
+    bnss_list = ", ".join(fir.get("bnss_sections", []))
     it_list = ", ".join(fir.get("it_act_sections", []))
 
-    ipc_sections = f"Sections {ipc_list} IPC" if ipc_list else "N/A"
-    it_act_sections = (
-        f"Sections {it_list} of the Information Technology Act, 2000"
-        if it_list else "N/A"
+    bns_sections = (
+    f"Sections {bns_list} of the Bharatiya Nyaya Sanhita"
+    if bns_list else None
     )
+
+    bnss_sections = (
+    f"Sections {bnss_list} of the Bharatiya Nagarik Suraksha Sanhita"
+    if bnss_list else None
+    )
+
+    it_act_sections = (
+    f"Sections {it_list} of the Information Technology Act"
+    if it_list else None
+    )
+
+
 
     y -= 10
     c.setFont("Times-Bold", 11)
     c.drawString(LEFT_MARGIN, y, "2. CRIME DETAILS")
     y -= 22
 
+    crime_details_text = f"Nature of Offence:\n{fir.get('crime_type', 'N/A').title()}\n\n"
+
+    if bns_list:
+      crime_details_text += (
+        "Applicable BNS Sections:\n"
+        f"{bns_sections}\n\n"
+      )
+
+    if bnss_list:
+      crime_details_text += (
+        "Applicable BNSS Sections:\n"
+        f"{bnss_sections}\n\n"
+      )
+
+    if it_list:
+      crime_details_text += (
+        "Applicable IT Act Sections:\n"
+        f"{it_act_sections}\n\n"
+      )
+
+    crime_details_text = crime_details_text.rstrip("\n")
+
     y = draw_paragraph(
-        c,
-        f"Nature of Offence:\n"
-        f"{fir.get('crime_type', 'N/A').title()}\n\n"
-        f"Applicable IPC Sections:\n"
-        f"{ipc_sections}\n\n"
-        f"Applicable IT Act Sections:\n"
-        f"{it_act_sections}",
-        y
+       c,
+       crime_details_text,
+       y
     )
+
+
 
     # ================= 3. INCIDENT DESCRIPTION =================
     y -= 10
@@ -232,8 +267,8 @@ def generate_pdf(fir):
     c.drawCentredString(
         PAGE_WIDTH / 2,
         footer_y,
-        f"SO NO: {file_id}/2025 RAJASTHAN POLICE"
+        f"SO NO: {lr_no} RAJASTHAN POLICE"
     )
 
     c.save()
-    return path
+    return path,lr_no
