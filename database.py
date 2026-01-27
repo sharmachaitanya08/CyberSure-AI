@@ -14,17 +14,18 @@ def init_db():
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS fir_cases (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        lr_no TEXT UNIQUE,
-        name TEXT NOT NULL,
-        mobile TEXT,
-        address TEXT,
-        pincode TEXT,
-        incident TEXT NOT NULL,
-        pdf_path TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lr_no TEXT UNIQUE,
+    name TEXT NOT NULL,
+    mobile TEXT,
+    address TEXT,
+    pincode TEXT,
+    incident TEXT NOT NULL,
+    pdf_path TEXT NOT NULL,
+    created_at DATETIME
     )
     """)
+
 
     conn.commit()
     conn.close()
