@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 from fir_prompt import build_prompt
 from pdf_generator import generate_pdf
 from database import get_db, init_db
+from datetime import datetime
+import pytz
+
 
 
 load_dotenv()
@@ -166,6 +169,11 @@ def generate_fir():
         if not pdf_path or not os.path.exists(pdf_path):
             return jsonify({"error": "PDF generation failed"}), 500
         
+        # --------- CREATE IST TIMESTAMP ----------
+        ist = pytz.timezone("Asia/Kolkata")
+        created_at = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
+
+        
         # ================= SAVE USER DATA + PDF PATH TO DB =================
         conn = get_db()
         cursor = conn.cursor()
@@ -173,18 +181,19 @@ def generate_fir():
         cursor.execute("""
         INSERT INTO fir_cases (
         lr_no, name, mobile, address, pincode,
-        incident, pdf_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        incident, pdf_path, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            lr_no,
-            fir_json.get("name"),
-            fir_json.get("mobile"),
-            fir_json.get("address"),
-            fir_json.get("pincode"),
-            data.get("incident"),
-            pdf_path
-        )
-        )
+        lr_no,
+        fir_json.get("name"),
+        fir_json.get("mobile"),
+        fir_json.get("address"),
+        fir_json.get("pincode"),
+        data.get("incident"),
+        pdf_path,
+        created_at
+        ))
+
 
         conn.commit()
         conn.close()
