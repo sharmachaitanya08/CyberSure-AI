@@ -7,11 +7,20 @@ import re
 from dotenv import load_dotenv
 from fir_prompt import build_prompt
 from pdf_generator import generate_pdf
+from database import get_db, init_db
+
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+try:
+    init_db()
+except Exception as e:
+    print("DB init skipped:", e)
+
+
 
 # =========================================================
 # AUTO FIX JSON (MOST IMPORTANT)
@@ -91,13 +100,15 @@ def generate_fir():
 
         # ---------------- Call Groq API ----------------
         response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost",   # required by OpenRouter
+                "X-Title": "FIR Generator"             # any app name
             },
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": "meta-llama/llama-3.1-8b-instruct",
                 "messages": [
                     {
                         "role": "system",
@@ -108,10 +119,12 @@ def generate_fir():
                         "content": prompt
                     }
                 ],
-                "temperature": 0.2
+                "temperature": 0.2,
+                "max_tokens": 700
             },
             timeout=30
         )
+
 
         if response.status_code != 200:
             return jsonify({
@@ -148,25 +161,109 @@ def generate_fir():
         fir_json["pincode"] = data.get("pincode")
 
         # ---------------- GENERATE PDF ----------------
-        pdf_path = generate_pdf(fir_json)
+        pdf_path, lr_no = generate_pdf(fir_json)
 
         if not pdf_path or not os.path.exists(pdf_path):
             return jsonify({"error": "PDF generation failed"}), 500
+        
+        # ================= SAVE USER DATA + PDF PATH TO DB =================
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+        INSERT INTO fir_cases (
+        lr_no, name, mobile, address, pincode,
+        incident, pdf_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            lr_no,
+            fir_json.get("name"),
+            fir_json.get("mobile"),
+            fir_json.get("address"),
+            fir_json.get("pincode"),
+            data.get("incident"),
+            pdf_path
+        )
+        )
+
+        conn.commit()
+        conn.close()
+
 
         # ---------------- SUCCESS ----------------
         return jsonify({
             "status": "success",
             "crime_type": fir_json.get("crime_type"),
-            "ipc_sections": fir_json.get("ipc_sections"),
-            "it_act_sections": fir_json.get("it_act_sections"),
+            "bns_sections": fir_json.get("bns_sections", []),
+            "bnss_sections": fir_json.get("bnss_sections", []),
+            "it_act_sections": fir_json.get("it_act_sections", []),
             "pdf": pdf_path
         })
+
 
     except Exception as e:
         return jsonify({
             "error": "Server error",
             "details": str(e)
         }), 500
+
+@app.route("/records", methods=["GET"])
+def view_fir_records():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT
+            lr_no,
+            name,
+            mobile,
+            address,
+            pincode,
+            incident,
+            pdf_path,
+            created_at
+        FROM fir_cases
+        ORDER BY created_at DESC
+    """).fetchall()
+    conn.close()
+
+    base_url = request.host_url.rstrip("/")
+
+    results = []
+    for row in rows:
+        results.append({
+            "lr_no": row["lr_no"],
+            "name": row["name"],
+            "mobile": row["mobile"],
+            "address": row["address"],
+            "pincode": row["pincode"],
+            "incident": row["incident"],
+            "pdf_url": f"{base_url}/download/{row['pdf_path']}",
+            "created_at": row["created_at"]
+        })
+
+    return jsonify(results)
+
+@app.route("/delete", methods=["DELETE"])
+def reset_system():
+    # delete DB data
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM fir_cases")
+    conn.commit()
+    conn.close()
+
+    # delete PDFs
+    pdf_dir = "generated_fir"
+    if os.path.exists(pdf_dir):
+        for f in os.listdir(pdf_dir):
+            if f.lower().endswith(".pdf"):
+                os.remove(os.path.join(pdf_dir, f))
+
+    return jsonify({
+        "status": "success",
+        "message": "Database and PDFs cleared"
+    })
+
+
 
 
 # =========================================================
