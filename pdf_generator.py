@@ -149,18 +149,18 @@ def generate_pdf(fir):
     )
 
     # ================= 2. CRIME DETAILS =================
+    ipc_list = ", ".join(fir.get("ipc_sections", []))
     bns_list = ", ".join(fir.get("bns_sections", []))
-    bnss_list = ", ".join(fir.get("bnss_sections", []))
     it_list = ", ".join(fir.get("it_act_sections", []))
+    
+    ipc_sections = (
+    f"Sections {ipc_list} of the Indian Penal Code"
+    if ipc_list else None
+    )
 
     bns_sections = (
     f"Sections {bns_list} of the Bharatiya Nyaya Sanhita"
     if bns_list else None
-    )
-
-    bnss_sections = (
-    f"Sections {bnss_list} of the Bharatiya Nagarik Suraksha Sanhita"
-    if bnss_list else None
     )
 
     it_act_sections = (
@@ -176,17 +176,18 @@ def generate_pdf(fir):
     y -= 22
 
     crime_details_text = f"Nature of Offence:\n{fir.get('crime_type', 'N/A').title()}\n\n"
+    
+    
+    if ipc_list:
+      crime_details_text += (
+        "Applicable IPC Sections:\n"
+        f"{ipc_sections}\n\n"
+      )
 
     if bns_list:
       crime_details_text += (
         "Applicable BNS Sections:\n"
         f"{bns_sections}\n\n"
-      )
-
-    if bnss_list:
-      crime_details_text += (
-        "Applicable BNSS Sections:\n"
-        f"{bnss_sections}\n\n"
       )
 
     if it_list:
