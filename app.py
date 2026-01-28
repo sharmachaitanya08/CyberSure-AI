@@ -102,16 +102,15 @@ def generate_fir():
         prompt = build_prompt(data)
 
         # ---------------- Call Groq API ----------------
+        # ---------------- Call Groq API ----------------
         response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
+            "https://api.groq.com/openai/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost",   # required by OpenRouter
-                "X-Title": "FIR Generator"             # any app name
+                "Authorization": f"Bearer {os.getenv('Groq_api')}",
+                "Content-Type": "application/json"
             },
             json={
-                "model": "meta-llama/llama-3.1-8b-instruct",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
                     {
                         "role": "system",
@@ -122,12 +121,11 @@ def generate_fir():
                         "content": prompt
                     }
                 ],
-                "temperature": 0.2,
+                "temperature": 0.1,
                 "max_tokens": 700
             },
-            timeout=30
+            timeout=40
         )
-
 
         if response.status_code != 200:
             return jsonify({
@@ -151,11 +149,16 @@ def generate_fir():
             }), 500
 
         # ---------------- VALIDATION ----------------
-        if "fir_text" not in fir_json:
-            return jsonify({
-                "error": "AI JSON missing fir_text",
-                "parsed_json": fir_json
-            }), 500
+        required_keys = ["crime_type", "ipc_sections", "bns_sections", "it_act_sections", "fir_text"]
+
+        missing = [k for k in required_keys if k not in fir_json]
+        if missing:
+                return jsonify({
+                    "error": "AI JSON missing required keys",
+                    "missing": missing,
+                    "parsed_json": fir_json
+                }), 500
+
 
         # ---------------- MERGE FRONTEND DATA ----------------
         fir_json["name"] = data.get("name")
@@ -203,11 +206,12 @@ def generate_fir():
         return jsonify({
             "status": "success",
             "crime_type": fir_json.get("crime_type"),
+            "ipc_sections": fir_json.get("ipc_sections", []),
             "bns_sections": fir_json.get("bns_sections", []),
-            "bnss_sections": fir_json.get("bnss_sections", []),
             "it_act_sections": fir_json.get("it_act_sections", []),
             "pdf": pdf_path
         })
+
 
 
     except Exception as e:
